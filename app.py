@@ -360,9 +360,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 person = st.text_input("", placeholder="e.g. What would (insert Actual Icon) do?", label_visibility="collapsed", key="person_input")
 
-person_label = st.session_state.get("person_input", "").strip()
-button_label = f"✦  Ask {person_label}" if person_label else "✦  Ask WhatWould"
-ask = st.button(button_label)
+ask = st.button("✦  Ask")
 
 ICONS = [
     "Keanu Reeves", "Elon Musk", "Steve Jobs", "Frida Kahlo", "Napoleon Bonaparte",
