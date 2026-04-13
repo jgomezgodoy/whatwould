@@ -2,6 +2,7 @@ import streamlit as st
 import wikipedia
 import requests
 import random
+from duckduckgo_search import DDGS
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -308,29 +309,70 @@ def search_wikipedia(name: str) -> tuple[str, str, str, str]:
         return "", "", "", ""
 
 
-def ask_groq(person: str, situation: str, wiki_text: str) -> str:
+def get_person_image(name: str, wiki_image_url: str) -> str:
+    """Returns a usable image URL: Wikipedia thumbnail or DuckDuckGo fallback."""
+    if wiki_image_url:
+        return wiki_image_url
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.images(f"{name} portrait photo", max_results=3))
+            for r in results:
+                url = r.get("image", "")
+                if url:
+                    return url
+    except Exception:
+        pass
+    return ""
+
+
+def search_web_context(name: str) -> str:
+    """Search DuckDuckGo for quotes, interviews and opinions from this person."""
+    queries = [
+        f"{name} quotes interview",
+        f"{name} opinions beliefs values",
+        f"{name} advice philosophy life",
+    ]
+    snippets = []
+    try:
+        with DDGS() as ddgs:
+            for q in queries:
+                results = ddgs.text(q, max_results=3)
+                for r in results:
+                    snippets.append(f"[{r['title']}] {r['body']}")
+    except Exception:
+        pass
+    return "\n".join(snippets[:9])
+
+
+def ask_groq(person: str, situation: str, wiki_text: str, web_context: str, lang_prompt: str = "Respond in English.") -> str:
     prompt = f"""You are {person}. You are speaking directly to the user who has come to you for advice.
 
-Here is background information about who you are:
+BIOGRAPHICAL INFO (Wikipedia):
 ---
-{wiki_text[:3000]}
+{wiki_text[:2500]}
+---
+
+REAL QUOTES, INTERVIEWS & KNOWN OPINIONS (from web sources):
+---
+{web_context[:2500]}
 ---
 
 The user's situation: {situation}
 
-Respond in first person, as {person} speaking directly to the user. Use "I" and "you". Channel {person}'s real personality, values, known beliefs, life experiences and way of speaking.
+Respond in first person, as {person} speaking directly to the user. Use "I" and "you".
 
 CRITICAL RULES:
-- Do NOT automatically agree with the user's idea or plan. Be honest and critical.
-- If the idea contradicts your values, personality, or known preferences, push back strongly.
-- If the idea is bad, say so clearly and explain why based on who you are.
-- Only support the idea if it genuinely aligns with your character.
-- Be direct, opinionated, and authentic — not polite for the sake of it.
-- Reference your own real experiences, decisions, or known traits when relevant.
+- Ground EVERYTHING in your real documented life: cite actual events, decisions, projects, failures, quotes, or moments from your biography above. Be HYPER-SPECIFIC — no generic advice.
+- If a real quote or known opinion from you is directly relevant, paraphrase or echo it naturally in your voice.
+- Do NOT automatically agree with the user's idea. Be honest and critical.
+- If the idea contradicts your known values, beliefs or track record, push back hard with specific reasons from your life.
+- Only support the idea if it genuinely maps to who you are and what you've done.
+- Sound unmistakably like YOU — your rhythm, your known vocabulary, your attitude.
 Keep it between 150-250 words.
+{lang_prompt}
 
 You MUST end with a clear verdict. Format it as:
-**My verdict: [one blunt sentence — approve or reject the idea, and why]**"""
+**My verdict: [one blunt sentence — approve or reject the idea, and why, referencing a specific fact about your life]**"""
 
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -349,40 +391,76 @@ You MUST end with a clear verdict. Format it as:
     return r.json()["choices"][0]["message"]["content"].strip()
 
 
+# ── TRANSLATIONS ──────────────────────────────────────────────────────────────
+T = {
+    "en": {
+        "hero_sub": "There are too many decisions to make every single day.<br>Let's get some advice from historic figures or your favourite movie characters.",
+        "badge": "AI (Actual Icons) Powered Decisions",
+        "situation_label": "Please explain what's bothering you right now...",
+        "situation_placeholder": "... e.g. I like the idea of bitcoin but not sure if...",
+        "what_would": "🔮 WHAT WOULD",
+        "do_in": "DO IN MY SITUATION?",
+        "name_placeholder": "type a name...",
+        "ask_btn": "✦  Ask",
+        "chips_label": "LAST QUERIES MADE TO...",
+        "warning": "Please fill in both fields.",
+        "not_found": "Could not find **{name}** on Wikipedia. Try a different name.",
+        "tells_you": "{name} tells you...",
+        "lang_prompt": "Respond in English.",
+    },
+    "es": {
+        "hero_sub": "Hay demasiadas decisiones que tomar cada día.<br>Pidamos consejo a figuras históricas.",
+        "badge": "¿Qué harían ellos en tú situación?",
+        "situation_label": "Explica qué te preocupa ahora mismo...",
+        "situation_placeholder": "... ej. Me gusta la idea del bitcoin pero no sé si...",
+        "what_would": "🔮 QUÉ HARÍA",
+        "do_in": "EN MI SITUACIÓN?",
+        "name_placeholder": "escribe un nombre...",
+        "ask_btn": "✦  Preguntar",
+        "chips_label": "ÚLTIMAS CONSULTAS REALIZADAS A...",
+        "warning": "Por favor, rellena los dos campos.",
+        "not_found": "No encontré a **{name}** en Wikipedia. Prueba con otro nombre.",
+        "tells_you": "{name} te dice...",
+        "lang_prompt": "Responde en español.",
+    },
+}
+
 # ── UI ────────────────────────────────────────────────────────────────────────
-st.markdown("""
+
+# Language selector
+# Language via query params
+if "lang" in st.query_params:
+    st.session_state["lang"] = st.query_params["lang"]
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "en"
+
+lang = st.session_state["lang"]
+
+st.markdown(f"""
+<div style="display:flex;gap:8px;margin-bottom:16px;">
+  <a href="?lang=en" style="text-decoration:none;">
+    <img src="https://flagcdn.com/w40/gb.png" style="
+      width:46px;height:30px;object-fit:cover;border-radius:8px;cursor:pointer;display:block;
+      box-shadow:{'0 0 0 2.5px #7c3aed' if lang=='en' else '0 1px 4px rgba(0,0,0,0.15)'};
+      opacity:{'1' if lang=='en' else '0.55'};" />
+  </a>
+  <a href="?lang=es" style="text-decoration:none;">
+    <img src="https://flagcdn.com/w40/es.png" style="
+      width:46px;height:30px;object-fit:cover;border-radius:8px;cursor:pointer;display:block;
+      box-shadow:{'0 0 0 2.5px #7c3aed' if lang=='es' else '0 1px 4px rgba(0,0,0,0.15)'};
+      opacity:{'1' if lang=='es' else '0.55'};" />
+  </a>
+</div>
+""", unsafe_allow_html=True)
+
+tx = T[lang]
+
+st.markdown(f"""
 <div class="hero">
-    <div class="hero-sub">There are too many decisions to make every single day.<br>Let's get some help from historic figures or your favourite movie characters.</div>
-    <div class="hero-badge-sub">AI (Actual Icons) Powered Decisions</div>
+    <div class="hero-sub">{tx["hero_sub"]}</div>
+    <div class="hero-badge-sub">{tx["badge"]}</div>
 </div>
 """, unsafe_allow_html=True)
-
-st.markdown("""
-<div style="margin-bottom:6px;">
-    <span style="font-size:28px; line-height:1;">💀</span>
-    <span style="font-size:16px; font-weight:600; color:#18181b; margin-left:10px; vertical-align:middle;">Please explain what's bothering you right now...</span>
-</div>
-""", unsafe_allow_html=True)
-situation = st.text_area("", placeholder="... e.g. I like the idea of bitcoin but not sure if...", height=120, label_visibility="collapsed")
-
-st.markdown("""
-<style>
-    .inline-row { display:flex; align-items:center; gap:10px; margin:24px 0 16px 0; flex-wrap:nowrap; }
-    .inline-label { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:#18181b; letter-spacing:-1px; white-space:nowrap; }
-    .inline-row .stTextInput { flex:1; min-width:0; }
-    .inline-row .stTextInput > div > div > input { font-size:13px !important; padding:10px 14px !important; }
-</style>
-""", unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns([2, 2, 2])
-with col1:
-    st.markdown('<div style="padding-top:8px;"><span style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#18181b;letter-spacing:-1px;">🔮 WHAT WOULD</span></div>', unsafe_allow_html=True)
-with col2:
-    person = st.text_input("", placeholder="type a name...", label_visibility="collapsed", key="person_input")
-with col3:
-    st.markdown('<div style="padding-top:8px;"><span style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#18181b;letter-spacing:-1px;">DO IN MY SITUATION?</span></div>', unsafe_allow_html=True)
-
-ask = st.button("✦  Ask")
 
 ICONS = [
     "Keanu Reeves", "Elon Musk", "Steve Jobs", "Frida Kahlo", "Napoleon Bonaparte",
@@ -406,15 +484,48 @@ chips_html = "".join(f'<span class="chip">{name}</span>' for name in shown)
 
 st.markdown(f"""
 <div class="chips-wrap">
-    <div class="chips-label">Latest advices coming from...</div>
+    <div class="chips-label">{tx["chips_label"]}</div>
     {chips_html}
 </div>
 """, unsafe_allow_html=True)
 
+st.markdown('<div style="margin-top:40px;"></div>', unsafe_allow_html=True)
+
+st.markdown(f"""
+<div style="margin-bottom:6px;">
+    <span style="font-size:28px; line-height:1;">💀</span>
+    <span style="font-size:16px; font-weight:600; color:#18181b; margin-left:10px; vertical-align:middle;">{tx["situation_label"]}</span>
+</div>
+""", unsafe_allow_html=True)
+situation = st.text_area("", placeholder=tx["situation_placeholder"], height=120, label_visibility="collapsed")
+
+st.markdown("""
+<style>
+    .inline-row { display:flex; align-items:center; gap:10px; margin:24px 0 16px 0; flex-wrap:nowrap; }
+    .inline-label { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:#18181b; letter-spacing:-1px; white-space:nowrap; }
+    .inline-row .stTextInput { flex:1; min-width:0; }
+    .inline-row .stTextInput > div > div > input { font-size:13px !important; padding:10px 14px !important; }
+</style>
+""", unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([2.5, 2, 3])
+with col1:
+    st.markdown(f'<div style="padding-top:8px;text-align:right;"><span style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#18181b;letter-spacing:-1px;">{tx["what_would"]}</span></div>', unsafe_allow_html=True)
+with col2:
+    person = st.text_input("", placeholder=tx["name_placeholder"], label_visibility="collapsed", key="person_input")
+with col3:
+    st.markdown(f'<div style="padding-top:8px;"><span style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#18181b;letter-spacing:-1px;">{tx["do_in"]}</span></div>', unsafe_allow_html=True)
+
+st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
+
+_, col_btn, _ = st.columns([3, 2, 3])
+with col_btn:
+    ask = st.button(tx["ask_btn"])
+
 # ── LOGIC ─────────────────────────────────────────────────────────────────────
 if ask:
     if not person.strip() or not situation.strip():
-        st.warning("Please fill in both fields.")
+        st.warning(tx["warning"])
     else:
         loading = st.empty()
         loading.markdown('<div class="heartbeat">❤️</div>', unsafe_allow_html=True)
@@ -423,12 +534,13 @@ if ask:
 
         if not wiki_text:
             loading.empty()
-            st.error(f"Could not find **{person}** on Wikipedia. Try a different name.")
+            st.error(tx["not_found"].format(name=person))
         else:
             display_name = resolved_name or person
             if True:
                 try:
-                    answer = ask_groq(display_name, situation, wiki_text)
+                    web_context = search_web_context(display_name)
+                    answer = ask_groq(display_name, situation, wiki_text, web_context, tx["lang_prompt"])
                     loading.empty()
 
                     # Safe HTML rendering
@@ -437,19 +549,20 @@ if ask:
                     answer_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', answer_safe)
                     answer_html = answer_html.replace('\n', '<br>')
 
-                    st.write(f"DEBUG image_url: {image_url}")
-                    col_img, col_txt = st.columns([1, 4])
-                    with col_img:
-                        if image_url:
-                            try:
-                                img_data = requests.get(image_url, timeout=5).content
-                                st.image(img_data, width=120)
-                            except Exception:
-                                pass
-                    with col_txt:
-                        st.markdown(f"""
-<div style="background:white;border-radius:24px;padding:28px;box-shadow:0 4px 24px rgba(124,58,237,0.08);border:1px solid #e9d5ff;">
-  <div style="font-size:20px;font-weight:700;color:#18181b;margin-bottom:14px;">{display_name} tells you...</div>
+                    final_image_url = get_person_image(display_name, image_url)
+
+                    if final_image_url:
+                        try:
+                            img_data = requests.get(final_image_url, timeout=5).content
+                            col_l, col_m, col_r = st.columns([2, 1, 2])
+                            with col_m:
+                                st.image(img_data, width=110)
+                        except Exception:
+                            pass
+
+                    st.markdown(f"""
+<div style="background:white;border-radius:24px;padding:28px;box-shadow:0 4px 24px rgba(124,58,237,0.08);border:1px solid #e9d5ff;margin-top:12px;">
+  <div style="font-size:20px;font-weight:700;color:#18181b;text-align:center;margin-bottom:14px;">{tx["tells_you"].format(name=display_name)}</div>
   <div style="font-size:16px;color:#374151;line-height:1.85;">{answer_html}</div>
 </div>
 """, unsafe_allow_html=True)
