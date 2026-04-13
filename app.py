@@ -378,7 +378,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns([2.2, 2, 2.8])
+col1, col2, col3 = st.columns([2, 2, 2])
 with col1:
     st.markdown('<div style="padding-top:8px;"><span style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#18181b;letter-spacing:-1px;">🔮 WHAT WOULD</span></div>', unsafe_allow_html=True)
 with col2:
