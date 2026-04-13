@@ -370,20 +370,21 @@ st.markdown("""
 situation = st.text_area("", placeholder="... e.g. I like the idea of bitcoin but not sure if...", height=120, label_visibility="collapsed")
 
 st.markdown("""
-<div style="margin-top:24px; margin-bottom:4px;">
-    <span style="font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:#18181b; letter-spacing:-1px;">
-        🔮 WHAT WOULD
-    </span>
-</div>
+<style>
+    .inline-row { display:flex; align-items:center; gap:10px; margin:24px 0 16px 0; flex-wrap:nowrap; }
+    .inline-label { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:#18181b; letter-spacing:-1px; white-space:nowrap; }
+    .inline-row .stTextInput { flex:1; min-width:0; }
+    .inline-row .stTextInput > div > div > input { font-size:13px !important; padding:10px 14px !important; }
+</style>
 """, unsafe_allow_html=True)
-person = st.text_input("", placeholder="type a name...", label_visibility="collapsed", key="person_input")
-st.markdown("""
-<div style="margin-top:4px; margin-bottom:16px;">
-    <span style="font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:#18181b; letter-spacing:-1px;">
-        DO IN MY SITUATION?
-    </span>
-</div>
-""", unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([2.2, 2, 2.8])
+with col1:
+    st.markdown('<div style="padding-top:8px;"><span style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#18181b;letter-spacing:-1px;">🔮 WHAT WOULD</span></div>', unsafe_allow_html=True)
+with col2:
+    person = st.text_input("", placeholder="type a name...", label_visibility="collapsed", key="person_input")
+with col3:
+    st.markdown('<div style="padding-top:8px;"><span style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#18181b;letter-spacing:-1px;">DO IN MY SITUATION?</span></div>', unsafe_allow_html=True)
 
 ask = st.button("✦  Ask")
 
