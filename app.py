@@ -437,11 +437,17 @@ if ask:
                     answer_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', answer_safe)
                     answer_html = answer_html.replace('\n', '<br>')
 
-                    img_tag = f'<img src="{image_url}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid rgba(168,85,247,0.4);margin-bottom:14px;">' if image_url else ""
-
-                    st.markdown(f"""
-<div style="background:white;border-radius:24px;padding:32px;margin:16px 0;box-shadow:0 4px 24px rgba(124,58,237,0.08);border:1px solid #e9d5ff;">
-  {img_tag}
+                    col_img, col_txt = st.columns([1, 4])
+                    with col_img:
+                        if image_url:
+                            try:
+                                img_data = requests.get(image_url, timeout=5).content
+                                st.image(img_data, width=120)
+                            except Exception:
+                                pass
+                    with col_txt:
+                        st.markdown(f"""
+<div style="background:white;border-radius:24px;padding:28px;box-shadow:0 4px 24px rgba(124,58,237,0.08);border:1px solid #e9d5ff;">
   <div style="font-size:20px;font-weight:700;color:#18181b;margin-bottom:14px;">{display_name} tells you...</div>
   <div style="font-size:16px;color:#374151;line-height:1.85;">{answer_html}</div>
 </div>
