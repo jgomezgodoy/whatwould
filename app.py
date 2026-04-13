@@ -290,19 +290,15 @@ def search_wikipedia(name: str) -> tuple[str, str, str, str]:
 
         summary = page.content[:4000]
 
-        # Get thumbnail from Wikipedia API
+        # Get thumbnail from Wikipedia REST API
         image_url = ""
         try:
-            api = requests.get(
-                "https://en.wikipedia.org/w/api.php",
-                params={"action": "query", "titles": page.title, "prop": "pageimages",
-                        "format": "json", "pithumbsize": 400},
+            slug = page.title.replace(" ", "_")
+            rest = requests.get(
+                f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}",
                 timeout=5
             ).json()
-            pages = api.get("query", {}).get("pages", {})
-            for p in pages.values():
-                image_url = p.get("thumbnail", {}).get("source", "")
-                break
+            image_url = rest.get("thumbnail", {}).get("source", "")
         except Exception:
             pass
 
