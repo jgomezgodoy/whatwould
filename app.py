@@ -437,6 +437,7 @@ if ask:
                     answer_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', answer_safe)
                     answer_html = answer_html.replace('\n', '<br>')
 
+                    st.write(f"DEBUG image_url: {image_url}")
                     col_img, col_txt = st.columns([1, 4])
                     with col_img:
                         if image_url:
