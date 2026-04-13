@@ -274,13 +274,13 @@ st.markdown("""
 
 
 # ── HELPERS ───────────────────────────────────────────────────────────────────
-def search_wikipedia(name: str) -> tuple[str, str, str]:
-    """Returns (summary, page_url, resolved_name) or raises."""
+def search_wikipedia(name: str) -> tuple[str, str, str, str]:
+    """Returns (summary, page_url, resolved_name, image_url) or raises."""
     wikipedia.set_lang("en")
     try:
         results = wikipedia.search(name, results=3)
         if not results:
-            return "", "", ""
+            return "", "", "", ""
         best_match = results[0]
 
         try:
@@ -289,10 +289,27 @@ def search_wikipedia(name: str) -> tuple[str, str, str]:
             page = wikipedia.page(e.options[0], auto_suggest=False)
 
         summary = page.content[:4000]
-        return summary, page.url, page.title
+
+        # Get thumbnail from Wikipedia API
+        image_url = ""
+        try:
+            api = requests.get(
+                "https://en.wikipedia.org/w/api.php",
+                params={"action": "query", "titles": page.title, "prop": "pageimages",
+                        "format": "json", "pithumbsize": 400},
+                timeout=5
+            ).json()
+            pages = api.get("query", {}).get("pages", {})
+            for p in pages.values():
+                image_url = p.get("thumbnail", {}).get("source", "")
+                break
+        except Exception:
+            pass
+
+        return summary, page.url, page.title, image_url
     except Exception as e:
         st.error(f"Wikipedia error: {e}")
-        return "", "", ""
+        return "", "", "", ""
 
 
 def ask_groq(person: str, situation: str, wiki_text: str) -> str:
@@ -353,12 +370,20 @@ st.markdown("""
 situation = st.text_area("", placeholder="... e.g. I like the idea of bitcoin but not sure if...", height=120, label_visibility="collapsed")
 
 st.markdown("""
-<div style="margin-bottom:6px; margin-top:16px;">
-    <span style="font-size:28px; line-height:1;">🔮</span>
-    <span style="font-size:16px; font-weight:600; color:#18181b; margin-left:10px; vertical-align:middle;">Who is going to help you in such a difficult scenario?</span>
+<div style="margin-top:24px; margin-bottom:4px;">
+    <span style="font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:#18181b; letter-spacing:-1px;">
+        🔮 WHAT WOULD
+    </span>
 </div>
 """, unsafe_allow_html=True)
-person = st.text_input("", placeholder="e.g. What would (insert Actual Icon) do?", label_visibility="collapsed", key="person_input")
+person = st.text_input("", placeholder="type a name...", label_visibility="collapsed", key="person_input")
+st.markdown("""
+<div style="margin-top:4px; margin-bottom:16px;">
+    <span style="font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:#18181b; letter-spacing:-1px;">
+        DO IN MY SITUATION?
+    </span>
+</div>
+""", unsafe_allow_html=True)
 
 ask = st.button("✦  Ask")
 
@@ -397,7 +422,7 @@ if ask:
         loading = st.empty()
         loading.markdown('<div class="heartbeat">❤️</div>', unsafe_allow_html=True)
 
-        wiki_text, wiki_url, resolved_name = search_wikipedia(person)
+        wiki_text, wiki_url, resolved_name, image_url = search_wikipedia(person)
 
         if not wiki_text:
             loading.empty()
@@ -414,9 +439,12 @@ if ask:
                     answer_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', answer)
                     answer_html = answer_html.replace('\n', '<br>')
 
+                    img_html = f'<img src="{image_url}" style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid rgba(168,85,247,0.3); margin-bottom:16px; display:block;">' if image_url else ""
+
                     st.markdown(f"""
                     <div class="answer-card">
-<div class="answer-name">{display_name} tells you...</div>
+                        {img_html}
+                        <div class="answer-name">{display_name} tells you...</div>
                         <div class="answer-text">{answer_html}</div>
                     </div>
                     """, unsafe_allow_html=True)
