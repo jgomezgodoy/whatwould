@@ -435,20 +435,17 @@ if ask:
                     answer = ask_groq(display_name, situation, wiki_text)
                     loading.empty()
 
-                    # Convert **text** to <strong>text</strong> for safe HTML rendering
-                    import re
-                    answer_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', answer)
+                    # Safe HTML rendering
+                    import re, html
+                    answer_safe = html.escape(answer)
+                    answer_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', answer_safe)
                     answer_html = answer_html.replace('\n', '<br>')
 
-                    img_html = f'<img src="{image_url}" style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid rgba(168,85,247,0.3); margin-bottom:16px; display:block;">' if image_url else ""
+                    if image_url:
+                        st.image(image_url, width=100)
 
-                    st.markdown(f"""
-                    <div class="answer-card">
-                        {img_html}
-                        <div class="answer-name">{display_name} tells you...</div>
-                        <div class="answer-text">{answer_html}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"### {display_name} tells you...")
+                    st.markdown(answer_html, unsafe_allow_html=True)
 
                 except Exception as e:
                     loading.empty()
