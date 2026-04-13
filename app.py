@@ -307,12 +307,17 @@ The user's situation: {situation}
 
 Respond in first person, as {person} speaking directly to the user. Use "I" and "you". Channel {person}'s real personality, values, known beliefs, life experiences and way of speaking.
 
-Be specific — reference your own real experiences, decisions or beliefs when relevant.
-Be direct, personal and authentic — not generic.
+CRITICAL RULES:
+- Do NOT automatically agree with the user's idea or plan. Be honest and critical.
+- If the idea contradicts your values, personality, or known preferences, push back strongly.
+- If the idea is bad, say so clearly and explain why based on who you are.
+- Only support the idea if it genuinely aligns with your character.
+- Be direct, opinionated, and authentic — not polite for the sake of it.
+- Reference your own real experiences, decisions, or known traits when relevant.
 Keep it between 150-250 words.
 
-You MUST end your response with a clear, decisive recommendation. Format it as:
-**My advice: [one clear sentence telling the user exactly what to do]**"""
+You MUST end with a clear verdict. Format it as:
+**My verdict: [one blunt sentence — approve or reject the idea, and why]**"""
 
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -339,22 +344,25 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-with st.form("main_form"):
-    st.markdown("""
+st.markdown("""
 <div style="margin-bottom:6px;">
     <span style="font-size:28px; line-height:1;">💀</span>
     <span style="font-size:16px; font-weight:600; color:#18181b; margin-left:10px; vertical-align:middle;">Please explain what's bothering you right now...</span>
 </div>
 """, unsafe_allow_html=True)
-    situation = st.text_area("", placeholder="... e.g. I like the idea of bitcoin but not sure if...", height=120, label_visibility="collapsed")
-    st.markdown("""
+situation = st.text_area("", placeholder="... e.g. I like the idea of bitcoin but not sure if...", height=120, label_visibility="collapsed")
+
+st.markdown("""
 <div style="margin-bottom:6px; margin-top:16px;">
     <span style="font-size:28px; line-height:1;">🔮</span>
     <span style="font-size:16px; font-weight:600; color:#18181b; margin-left:10px; vertical-align:middle;">Who is going to help you in such a difficult scenario?</span>
 </div>
 """, unsafe_allow_html=True)
-    person = st.text_input("", placeholder="e.g. What would (insert Actual Icon) do?", label_visibility="collapsed")
-    ask = st.form_submit_button("✦  Ask WhatWould")
+person = st.text_input("", placeholder="e.g. What would (insert Actual Icon) do?", label_visibility="collapsed", key="person_input")
+
+person_label = st.session_state.get("person_input", "").strip()
+button_label = f"✦  Ask {person_label}" if person_label else "✦  Ask WhatWould"
+ask = st.button(button_label)
 
 ICONS = [
     "Keanu Reeves", "Elon Musk", "Steve Jobs", "Frida Kahlo", "Napoleon Bonaparte",
