@@ -381,6 +381,28 @@ def search_specific_connections(name: str, keywords: list[str]) -> str:
     return "\n".join(snippets)
 
 
+def fetch_reddit_queries() -> list[str]:
+    """Fetch weird personal advice questions from Reddit public API."""
+    subreddits = ["relationship_advice", "AmItheAsshole", "tifu", "personalfinance"]
+    titles = []
+    headers = {"User-Agent": "whatwould-app/1.0"}
+    for sub in subreddits:
+        try:
+            r = requests.get(
+                f"https://www.reddit.com/r/{sub}/top.json?limit=25&t=month",
+                headers=headers, timeout=6
+            )
+            if r.ok:
+                posts = r.json()["data"]["children"]
+                for post in posts:
+                    title = post["data"]["title"]
+                    if 30 < len(title) < 180:
+                        titles.append(title)
+        except Exception:
+            pass
+    return titles
+
+
 def ask_groq(person: str, situation: str, wiki_text: str, web_context: str, lang_prompt: str = "Respond in English.", specific_connections: str = "") -> str:
     connections_block = f"""
 DIRECT CONNECTIONS BETWEEN YOU AND THE USER'S SITUATION (prioritize these above all):
@@ -458,6 +480,8 @@ T = {
         "name_placeholder": "type a name...",
         "ask_btn": "✦  Ask",
         "chips_label": "LAST QUERIES MADE TO...",
+        "last_query_label": "LAST QUESTION ASKED TO",
+        "use_this": "✦ Ask {name} this →",
         "warning": "Please fill in both fields.",
         "not_found": "Could not find **{name}** on Wikipedia. Try a different name.",
         "tells_you": "{name} tells you...",
@@ -473,6 +497,8 @@ T = {
         "name_placeholder": "escribe un nombre...",
         "ask_btn": "✦  Preguntar",
         "chips_label": "ÚLTIMAS CONSULTAS REALIZADAS A...",
+        "last_query_label": "ÚLTIMA PREGUNTA HECHA A",
+        "use_this": "✦ Preguntarle esto a {name} →",
         "warning": "Por favor, rellena los dos campos.",
         "not_found": "No encontré a **{name}** en Wikipedia. Prueba con otro nombre.",
         "tells_you": "{name} te dice...",
@@ -535,16 +561,62 @@ if "chip_seed" not in st.session_state:
 rng = random.Random(daily_seed)
 shown = rng.sample(ICONS, 6)
 
-chips_html = "".join(f'<span class="chip">{name}</span>' for name in shown)
+# ── Fetch & cache Reddit queries ──────────────────────────────────────────────
+if "reddit_queries" not in st.session_state:
+    st.session_state["reddit_queries"] = fetch_reddit_queries()
 
-st.markdown(f"""
-<div class="chips-wrap">
-    <div class="chips-label">{tx["chips_label"]}</div>
-    {chips_html}
-</div>
+if "chip_queries" not in st.session_state:
+    pool = st.session_state["reddit_queries"]
+    if pool:
+        rng2 = random.Random(daily_seed + 1)
+        rng2.shuffle(pool)
+        st.session_state["chip_queries"] = {name: pool[i % len(pool)] for i, name in enumerate(ICONS)}
+    else:
+        st.session_state["chip_queries"] = {}
+
+chip_queries = st.session_state["chip_queries"]
+
+# ── Pills (clickable chips) ───────────────────────────────────────────────────
+st.markdown(f'<div class="chips-label" style="text-align:center;margin-bottom:8px;">{tx["chips_label"]}</div>', unsafe_allow_html=True)
+st.markdown("""
+<style>
+    [data-testid="stPills"] { justify-content: center; }
+    [data-testid="stPills"] button {
+        background: rgba(255,255,255,0.65) !important;
+        border: 1px solid rgba(255,255,255,0.9) !important;
+        border-radius: 100px !important;
+        color: #52525b !important;
+        font-size: 12.5px !important;
+        font-weight: 400 !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+    }
+    [data-testid="stPills"] button[aria-pressed="true"] {
+        background: linear-gradient(110deg, #7c3aed, #c026d3) !important;
+        color: white !important;
+        border-color: transparent !important;
+    }
+</style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div style="margin-top:40px;"></div>', unsafe_allow_html=True)
+selected_chip = st.pills("", shown, selection_mode="single", key="chip_selector", label_visibility="collapsed")
+
+# ── Query preview card ────────────────────────────────────────────────────────
+if selected_chip and chip_queries.get(selected_chip):
+    preview_query = chip_queries[selected_chip]
+    st.markdown(f"""
+<div style="background:rgba(124,58,237,0.05);border:1px solid rgba(124,58,237,0.15);border-radius:20px;
+            padding:20px 24px;margin:12px 0 4px 0;">
+    <div style="font-size:10px;font-weight:500;letter-spacing:3px;text-transform:uppercase;
+                color:#a855f7;margin-bottom:10px;">{tx["last_query_label"]} {selected_chip.upper()}</div>
+    <div style="font-size:15px;color:#18181b;line-height:1.6;font-style:italic;">"{preview_query}"</div>
+</div>
+""", unsafe_allow_html=True)
+    if st.button(tx["use_this"].format(name=selected_chip), key="use_chip_query"):
+        st.session_state["person_input"] = selected_chip
+        st.session_state["situation_input"] = preview_query
+        st.rerun()
+
+st.markdown('<div style="margin-top:32px;"></div>', unsafe_allow_html=True)
 
 st.markdown(f"""
 <div style="margin-bottom:6px;">
@@ -552,7 +624,8 @@ st.markdown(f"""
     <span style="font-size:16px; font-weight:600; color:#18181b; margin-left:10px; vertical-align:middle;">{tx["situation_label"]}</span>
 </div>
 """, unsafe_allow_html=True)
-situation = st.text_area("", placeholder=tx["situation_placeholder"], height=120, label_visibility="collapsed")
+situation = st.text_area("", placeholder=tx["situation_placeholder"], height=120,
+                          label_visibility="collapsed", key="situation_input")
 
 st.markdown("""
 <style>
