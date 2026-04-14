@@ -343,6 +343,24 @@ def search_web_context(name: str) -> str:
     return "\n".join(snippets[:9])
 
 
+def translate_to_spanish(text: str, headers: dict) -> str:
+    """Translate a short text to Spanish using Groq."""
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [{"role": "user", "content": f"Translate this text to Spanish. Return ONLY the translation, nothing else:\n{text}"}],
+        "temperature": 0.1,
+        "max_tokens": 200,
+    }
+    try:
+        r = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                          headers=headers, json=payload, timeout=10)
+        if r.ok:
+            return r.json()["choices"][0]["message"]["content"].strip()
+    except Exception:
+        pass
+    return text
+
+
 def extract_keywords(situation: str, headers: dict) -> list[str]:
     """Use Groq to extract 3 key nouns/concepts from the user's situation."""
     payload = {
@@ -646,6 +664,12 @@ if selected_chip not in shown:
 # ── Query preview card ────────────────────────────────────────────────────────
 if selected_chip:
     preview_query = chip_queries.get(selected_chip, "")
+    if lang == "es" and preview_query:
+        cache_key = f"translated_{selected_chip}"
+        if cache_key not in st.session_state:
+            groq_headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+            st.session_state[cache_key] = translate_to_spanish(preview_query, groq_headers)
+        preview_query = st.session_state[cache_key]
     st.markdown(f"""
 <div style="background:rgba(124,58,237,0.06);border:1.5px solid rgba(124,58,237,0.2);border-radius:20px;
             padding:22px 26px;margin:20px 0 0 0;">
