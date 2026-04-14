@@ -381,9 +381,33 @@ def search_specific_connections(name: str, keywords: list[str]) -> str:
     return "\n".join(snippets)
 
 
+FALLBACK_QUERIES = [
+    "Should I quit my stable job to start a business with my best friend who has no business experience?",
+    "My partner wants us to move to another country for their dream job. I'd have to leave everything behind. What do I do?",
+    "I'm 28 and considering dropping out of my PhD program to pursue music. Everyone thinks I'm crazy.",
+    "Should I invest all my savings in crypto? My brother made a fortune and now won't stop pressuring me.",
+    "I want to tell my boss he's wrong in front of the whole team. Good idea or career suicide?",
+    "My parents want me to marry someone I don't love just because they're rich. Do I comply or destroy the family?",
+    "I'm thinking of ghosting all my friends and starting completely fresh in a new city. Healthy or insane?",
+    "Should I confront my coworker who takes credit for my work, even though they're close friends with the CEO?",
+    "I've been offered my dream job but it pays 40% less than my current one. Do I take it?",
+    "My therapist suggested I cut contact with my entire family. Part of me agrees. Part of me is terrified.",
+    "I want to propose to my girlfriend of 3 months. Everyone says it's too soon but it feels right.",
+    "Should I tell my friend that their startup idea is terrible before they invest their life savings?",
+    "I'm thinking of selling everything I own and traveling the world with no plan. Enlightenment or disaster?",
+    "My ex wants to get back together. Things ended badly but we never stopped loving each other.",
+    "I caught my business partner stealing from the company. He's also my oldest friend. What do I do?",
+    "Should I tell my dad I've known he was cheating on my mom for 5 years and said nothing?",
+    "I want to fire my entire team and start from zero. Brutal reset or complete madness?",
+    "My doctor told me to change my lifestyle completely or face serious consequences. I don't want to.",
+    "Is it wrong to date someone who is technically still married even though they're separated?",
+    "I'm thinking of suing my former employer but it would destroy their reputation and 30 jobs with it.",
+]
+
+
 def fetch_reddit_queries() -> list[str]:
-    """Fetch weird personal advice questions from Reddit public API."""
-    subreddits = ["relationship_advice", "AmItheAsshole", "tifu", "personalfinance"]
+    """Fetch weird personal advice questions from Reddit public API, with fallback."""
+    subreddits = ["relationship_advice", "AmItheAsshole", "tifu"]
     titles = []
     headers = {"User-Agent": "whatwould-app/1.0"}
     for sub in subreddits:
@@ -400,7 +424,7 @@ def fetch_reddit_queries() -> list[str]:
                         titles.append(title)
         except Exception:
             pass
-    return titles
+    return titles if len(titles) >= 10 else FALLBACK_QUERIES
 
 
 def ask_groq(person: str, situation: str, wiki_text: str, web_context: str, lang_prompt: str = "Respond in English.", specific_connections: str = "") -> str:
@@ -609,16 +633,19 @@ for i, name in enumerate(shown):
             st.session_state["selected_chip"] = name
 
 selected_chip = st.session_state.get("selected_chip")
+# reset if not in current chips
+if selected_chip not in shown:
+    selected_chip = None
 
 # ── Query preview card ────────────────────────────────────────────────────────
-if selected_chip and chip_queries.get(selected_chip):
-    preview_query = chip_queries[selected_chip]
+if selected_chip:
+    preview_query = chip_queries.get(selected_chip, "")
     st.markdown(f"""
-<div style="background:rgba(124,58,237,0.05);border:1px solid rgba(124,58,237,0.15);border-radius:20px;
-            padding:20px 24px;margin:16px 0 0 0;">
-    <div style="font-size:10px;font-weight:500;letter-spacing:3px;text-transform:uppercase;
-                color:#a855f7;margin-bottom:10px;">{tx["last_query_label"]} {selected_chip.upper()}</div>
-    <div style="font-size:15px;color:#18181b;line-height:1.6;font-style:italic;">"{preview_query}"</div>
+<div style="background:rgba(124,58,237,0.06);border:1.5px solid rgba(124,58,237,0.2);border-radius:20px;
+            padding:22px 26px;margin:20px 0 0 0;">
+    <div style="font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;
+                color:#a855f7;margin-bottom:12px;">{tx["last_query_label"]} {selected_chip.upper()}</div>
+    <div style="font-size:15px;color:#18181b;line-height:1.7;font-style:italic;">"{preview_query}"</div>
 </div>
 """, unsafe_allow_html=True)
     if st.button(tx["use_this"].format(name=selected_chip), key="use_chip_query"):
@@ -626,7 +653,7 @@ if selected_chip and chip_queries.get(selected_chip):
         st.session_state["situation_input"] = preview_query
         st.rerun()
 
-st.markdown('<div style="margin-top:48px;"></div>', unsafe_allow_html=True)
+st.markdown('<div style="margin-top:40px;"></div>', unsafe_allow_html=True)
 
 st.markdown(f"""
 <div style="margin-bottom:6px;">
