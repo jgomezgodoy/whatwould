@@ -605,8 +605,8 @@ st.markdown(f'<div class="chips-label" style="text-align:center;margin-bottom:8p
 
 st.markdown("""
 <style>
-/* Chip buttons only — targets the 6-column row, not the Ask button row */
-div[data-testid="stHorizontalBlock"]:has(> div:nth-child(6)) button {
+/* Chip buttons only — targets rows where the 1st column has a button (chips), not the Ask row (empty 1st col) */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(1) button) button {
     background: rgba(255,255,255,0.65) !important;
     border: 1px solid rgba(200,200,210,0.8) !important;
     border-radius: 100px !important;
@@ -621,7 +621,7 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(6)) button {
     line-height: 1.3 !important;
     height: auto !important;
 }
-div[data-testid="stHorizontalBlock"]:has(> div:nth-child(6)) button:hover {
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(1) button) button:hover {
     border-color: #a855f7 !important;
     color: #7c3aed !important;
     transform: none !important;
@@ -630,11 +630,13 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(6)) button:hover {
 </style>
 """, unsafe_allow_html=True)
 
-chip_cols = st.columns(len(shown))
-for i, name in enumerate(shown):
-    with chip_cols[i]:
-        if st.button(name, key=f"chip_btn_{name}"):
-            st.session_state["selected_chip"] = name
+row1, row2 = shown[:3], shown[3:]
+for row in [row1, row2]:
+    cols = st.columns(3)
+    for i, name in enumerate(row):
+        with cols[i]:
+            if st.button(name, key=f"chip_btn_{name}"):
+                st.session_state["selected_chip"] = name
 
 selected_chip = st.session_state.get("selected_chip")
 # reset if not in current chips
