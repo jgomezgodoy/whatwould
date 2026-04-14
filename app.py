@@ -260,15 +260,14 @@ st.markdown("""
         text-align: center;
         padding: 40px 0;
         font-size: 72px;
-        animation: heartbeat 0.8s ease-in-out infinite;
+        animation: thinking 1.6s ease-in-out infinite;
     }
-    @keyframes heartbeat {
-        0%   { transform: scale(1); }
-        14%  { transform: scale(1.2); }
-        28%  { transform: scale(1); }
-        42%  { transform: scale(1.15); }
-        70%  { transform: scale(1); }
-        100% { transform: scale(1); }
+    @keyframes thinking {
+        0%   { transform: rotate(-8deg) scale(1); }
+        25%  { transform: rotate(8deg) scale(1.08); }
+        50%  { transform: rotate(-6deg) scale(1); }
+        75%  { transform: rotate(6deg) scale(1.05); }
+        100% { transform: rotate(-8deg) scale(1); }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -328,9 +327,9 @@ def get_person_image(name: str, wiki_image_url: str) -> str:
 def search_web_context(name: str) -> str:
     """Search DuckDuckGo for quotes, interviews and opinions from this person."""
     queries = [
-        f"{name} quotes interview",
-        f"{name} opinions beliefs values",
-        f"{name} advice philosophy life",
+        f"{name} personality vibe lifestyle",
+        f"{name} attitude toward life philosophy",
+        f"{name} known for being like interview",
     ]
     snippets = []
     try:
@@ -344,35 +343,91 @@ def search_web_context(name: str) -> str:
     return "\n".join(snippets[:9])
 
 
-def ask_groq(person: str, situation: str, wiki_text: str, web_context: str, lang_prompt: str = "Respond in English.") -> str:
+def extract_keywords(situation: str, headers: dict) -> list[str]:
+    """Use Groq to extract 3 key nouns/concepts from the user's situation."""
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [{
+            "role": "user",
+            "content": f"""Extract the 3 most important nouns or concepts from this text.
+Return ONLY a comma-separated list of single words or short phrases in English, nothing else.
+Text: {situation}"""
+        }],
+        "temperature": 0.1,
+        "max_tokens": 30,
+    }
+    try:
+        r = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                          headers=headers, json=payload, timeout=10)
+        if r.ok:
+            raw = r.json()["choices"][0]["message"]["content"].strip()
+            return [k.strip() for k in raw.split(",") if k.strip()][:3]
+    except Exception:
+        pass
+    return []
+
+
+def search_specific_connections(name: str, keywords: list[str]) -> str:
+    """Search for direct connections between this person and the situation's keywords."""
+    snippets = []
+    try:
+        with DDGS() as ddgs:
+            for kw in keywords:
+                results = ddgs.text(f"{name} {kw}", max_results=2)
+                for r in results:
+                    snippets.append(f"[{kw.upper()}] [{r['title']}] {r['body']}")
+    except Exception:
+        pass
+    return "\n".join(snippets)
+
+
+def ask_groq(person: str, situation: str, wiki_text: str, web_context: str, lang_prompt: str = "Respond in English.", specific_connections: str = "") -> str:
+    connections_block = f"""
+DIRECT CONNECTIONS BETWEEN YOU AND THE USER'S SITUATION (prioritize these above all):
+---
+{specific_connections}
+---
+""" if specific_connections.strip() else ""
+
     prompt = f"""You are {person}. You are speaking directly to the user who has come to you for advice.
 
 BIOGRAPHICAL INFO (Wikipedia):
 ---
-{wiki_text[:2500]}
+{wiki_text[:2000]}
 ---
 
 REAL QUOTES, INTERVIEWS & KNOWN OPINIONS (from web sources):
 ---
-{web_context[:2500]}
+{web_context[:2000]}
 ---
-
+{connections_block}
 The user's situation: {situation}
 
+== STEP 1 — PERSONA SCAN (internal reasoning, do NOT output this) ==
+Before writing a single word of your answer, identify what {person} is PRIMARILY known for in terms of public image and personality energy. Pick the dominant archetype:
+- GRINDER/HUSTLER: obsessed with work, output, discipline (e.g. Steve Jobs, Elon Musk, Kobe Bryant)
+- HEDONIST/CARPE DIEM: lives for the moment, pleasure, spontaneity, intensity (e.g. Diplo, Hunter S. Thompson, Charlie Sheen)
+- REBEL/PROVOCATEUR: challenges norms, ego, controversy, artistic chaos (e.g. Kanye West, Salvador Dalí, Picasso)
+- WISE/SPIRITUAL: measured, philosophical, long-term thinking (e.g. Gandhi, Marcus Aurelius, Dalai Lama)
+- ROMANTIC/AESTHETIC: driven by beauty, passion, identity (e.g. Frida Kahlo, Coco Chanel, Marilyn Monroe)
+- WARRIOR/COMPETITOR: dominance, winning, legacy (e.g. Muhammad Ali, Napoleon, Julius Caesar)
+Your answer MUST be delivered in the emotional register of that archetype. The tone, rhythm, and values of your response must feel like THAT person — not a generic mentor.
+
+== STEP 2 — RESPOND ==
 Respond in first person, as {person} speaking directly to the user. Use "I" and "you".
 
 CRITICAL RULES:
-- Ground EVERYTHING in your real documented life: cite actual events, decisions, projects, failures, quotes, or moments from your biography above. Be HYPER-SPECIFIC — no generic advice.
+- If DIRECT CONNECTIONS are provided above, you MUST reference them explicitly. They represent real links between your life and the user's situation — use them as the emotional core of your answer. Example: if you died in a plane crash and the user asks about buying a plane, that connection must dominate your response.
+- Match your archetype: if you're a hedonist, sound impulsive and alive — NOT strategic. If you're a grinder, be relentless. Never default to generic "work hard" advice unless that is genuinely who you are.
+- Ground your response in HOW YOU LIVE AND THINK, not just what you've achieved. Your attitude, lifestyle, and public persona matter as much as your CV.
 - If a real quote or known opinion from you is directly relevant, paraphrase or echo it naturally in your voice.
-- Do NOT automatically agree with the user's idea. Be honest and critical.
-- If the idea contradicts your known values, beliefs or track record, push back hard with specific reasons from your life.
-- Only support the idea if it genuinely maps to who you are and what you've done.
+- Do NOT automatically agree with the user's idea. Be honest and critical in YOUR voice.
 - Sound unmistakably like YOU — your rhythm, your known vocabulary, your attitude.
 Keep it between 150-250 words.
 {lang_prompt}
 
 You MUST end with a clear verdict. Format it as:
-**My verdict: [one blunt sentence — approve or reject the idea, and why, referencing a specific fact about your life]**"""
+**My verdict: [one blunt sentence — approve or reject the idea, and why, in your authentic voice]**"""
 
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -528,7 +583,7 @@ if ask:
         st.warning(tx["warning"])
     else:
         loading = st.empty()
-        loading.markdown('<div class="heartbeat">❤️</div>', unsafe_allow_html=True)
+        loading.markdown('<div class="heartbeat">🧠</div>', unsafe_allow_html=True)
 
         wiki_text, wiki_url, resolved_name, image_url = search_wikipedia(person)
 
@@ -539,8 +594,14 @@ if ask:
             display_name = resolved_name or person
             if True:
                 try:
+                    headers = {
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json",
+                    }
                     web_context = search_web_context(display_name)
-                    answer = ask_groq(display_name, situation, wiki_text, web_context, tx["lang_prompt"])
+                    keywords = extract_keywords(situation, headers)
+                    specific_connections = search_specific_connections(display_name, keywords) if keywords else ""
+                    answer = ask_groq(display_name, situation, wiki_text, web_context, tx["lang_prompt"], specific_connections)
                     loading.empty()
 
                     # Safe HTML rendering
