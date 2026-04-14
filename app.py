@@ -600,23 +600,28 @@ st.markdown("""
 
 selected_chip = st.pills("", shown, selection_mode="single", key="chip_selector", label_visibility="collapsed")
 
-# ── Query preview card ────────────────────────────────────────────────────────
+# ── Query preview card (fixed slot, always rendered) ──────────────────────────
+preview_slot = st.empty()
+button_slot  = st.empty()
+
 if selected_chip and chip_queries.get(selected_chip):
     preview_query = chip_queries[selected_chip]
-    st.markdown(f"""
+    preview_slot.markdown(f"""
 <div style="background:rgba(124,58,237,0.05);border:1px solid rgba(124,58,237,0.15);border-radius:20px;
-            padding:20px 24px;margin:12px 0 4px 0;">
+            padding:20px 24px;margin:16px 0 0 0;">
     <div style="font-size:10px;font-weight:500;letter-spacing:3px;text-transform:uppercase;
                 color:#a855f7;margin-bottom:10px;">{tx["last_query_label"]} {selected_chip.upper()}</div>
     <div style="font-size:15px;color:#18181b;line-height:1.6;font-style:italic;">"{preview_query}"</div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button(tx["use_this"].format(name=selected_chip), key="use_chip_query"):
+    if button_slot.button(tx["use_this"].format(name=selected_chip), key="use_chip_query"):
         st.session_state["person_input"] = selected_chip
         st.session_state["situation_input"] = preview_query
         st.rerun()
+else:
+    preview_slot.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
-st.markdown('<div style="margin-top:32px;"></div>', unsafe_allow_html=True)
+st.markdown('<div style="margin-top:48px;"></div>', unsafe_allow_html=True)
 
 st.markdown(f"""
 <div style="margin-bottom:6px;">
