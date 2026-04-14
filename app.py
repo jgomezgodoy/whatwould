@@ -400,45 +400,52 @@ def search_specific_connections(name: str, keywords: list[str]) -> str:
 
 
 FALLBACK_QUERIES = [
-    "Should I quit my stable job to start a business with my best friend who has no business experience?",
-    "My partner wants us to move to another country for their dream job. I'd have to leave everything behind. What do I do?",
-    "I'm 28 and considering dropping out of my PhD program to pursue music. Everyone thinks I'm crazy.",
-    "Should I invest all my savings in crypto? My brother made a fortune and now won't stop pressuring me.",
-    "I want to tell my boss he's wrong in front of the whole team. Good idea or career suicide?",
-    "My parents want me to marry someone I don't love just because they're rich. Do I comply or destroy the family?",
-    "I'm thinking of ghosting all my friends and starting completely fresh in a new city. Healthy or insane?",
-    "Should I confront my coworker who takes credit for my work, even though they're close friends with the CEO?",
-    "I've been offered my dream job but it pays 40% less than my current one. Do I take it?",
-    "My therapist suggested I cut contact with my entire family. Part of me agrees. Part of me is terrified.",
-    "I want to propose to my girlfriend of 3 months. Everyone says it's too soon but it feels right.",
-    "Should I tell my friend that their startup idea is terrible before they invest their life savings?",
-    "I'm thinking of selling everything I own and traveling the world with no plan. Enlightenment or disaster?",
-    "My ex wants to get back together. Things ended badly but we never stopped loving each other.",
-    "I caught my business partner stealing from the company. He's also my oldest friend. What do I do?",
-    "Should I tell my dad I've known he was cheating on my mom for 5 years and said nothing?",
-    "I want to fire my entire team and start from zero. Brutal reset or complete madness?",
-    "My doctor told me to change my lifestyle completely or face serious consequences. I don't want to.",
-    "Is it wrong to date someone who is technically still married even though they're separated?",
-    "I'm thinking of suing my former employer but it would destroy their reputation and 30 jobs with it.",
+    "I've been secretly living a double life for 3 years and I'm exhausted. Should I come clean or just disappear?",
+    "I found out my whole personality was manufactured by my parents to make me more loveable. Who am I really?",
+    "I'm in love with my therapist and I think she might feel the same. Do I say something or ruin everything?",
+    "I haven't told anyone but I don't actually want kids. I've been lying to my partner for 2 years.",
+    "I faked my own death online to see who would actually miss me. The results destroyed me.",
+    "My best friend is marrying someone I slept with once. Neither of them knows. Do I say something?",
+    "I've been pretending to go to work every day for 6 months. I got fired and never told my family.",
+    "I ghosted my entire social circle 2 years ago and built a new identity. Now someone found me.",
+    "I think I'm addicted to being in crisis. Life feels empty when everything is going well.",
+    "My parents paid for my whole life and now want me to repay them financially. I feel like I was sold.",
+    "I deliberately self-sabotage every relationship I have right before it gets serious. I can't stop.",
+    "I've been writing anonymous letters to my neighbor for a year. They just became my closest friend.",
+    "I'm pretty sure my whole team knows I have no idea what I'm doing. Do I fake it or confess?",
+    "I fell in love with someone online who I'm now 90% sure is a catfish. But what if they're not?",
+    "My doctor told me something that would destroy my sibling's marriage if they found out. Do I tell them?",
+    "I've been secretly funding my ex's life for 3 years through anonymous donations. Should I stop?",
+    "I think I might actually enjoy being manipulated by certain people and I don't know what that says about me.",
+    "My family thinks I'm a successful entrepreneur. I'm actually broke and living off credit cards.",
+    "I've been reading my roommate's diary for a year. Yesterday I read something I can never un-know.",
+    "I said yes to a marriage proposal just to avoid an awkward conversation. That was 4 months ago.",
+    "I think I've been unconsciously copying someone else's entire personality for years. Is that even fixable?",
+    "My whole friend group thinks I'm the most stable one. I'm actually the most broken. Do I let them know?",
+    "I found evidence my parent committed a serious crime decades ago. They're 80 now. What do I do?",
+    "I've been in love with my best friend's partner for 5 years. They're getting divorced. Now what?",
 ]
 
 
 def fetch_reddit_queries() -> list[str]:
-    """Fetch weird personal advice questions from Reddit public API, with fallback."""
-    subreddits = ["relationship_advice", "AmItheAsshole", "tifu"]
+    """Fetch bizarre personal questions from unconventional Reddit communities, with fallback."""
+    subreddits = [
+        "confession", "TrueOffMyChest", "offmychest",
+        "TooAfraidToAsk", "self", "Advice",
+    ]
     titles = []
     headers = {"User-Agent": "whatwould-app/1.0"}
     for sub in subreddits:
         try:
             r = requests.get(
-                f"https://www.reddit.com/r/{sub}/top.json?limit=25&t=month",
+                f"https://www.reddit.com/r/{sub}/top.json?limit=20&t=month",
                 headers=headers, timeout=6
             )
             if r.ok:
                 posts = r.json()["data"]["children"]
                 for post in posts:
                     title = post["data"]["title"]
-                    if 30 < len(title) < 180:
+                    if 40 < len(title) < 200:
                         titles.append(title)
         except Exception:
             pass
@@ -604,8 +611,10 @@ rng = random.Random(daily_seed)
 shown = rng.sample(ICONS, 6)
 
 # ── Fetch & cache Reddit queries ──────────────────────────────────────────────
-if "reddit_queries" not in st.session_state:
+if "reddit_queries" not in st.session_state or st.session_state.get("reddit_source") != "v2":
     st.session_state["reddit_queries"] = fetch_reddit_queries()
+    st.session_state["reddit_source"] = "v2"
+    st.session_state.pop("chip_queries", None)  # force rebuild with new queries
 
 if "chip_queries" not in st.session_state:
     pool = st.session_state["reddit_queries"]
