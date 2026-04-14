@@ -610,12 +610,15 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
     border: 1px solid rgba(200,200,210,0.8) !important;
     border-radius: 100px !important;
     color: #52525b !important;
-    font-size: 12.5px !important;
+    font-size: 12px !important;
     font-weight: 400 !important;
-    padding: 6px 16px !important;
+    padding: 6px 12px !important;
     box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
-    width: auto !important;
-    margin: 0 auto !important;
+    width: 100% !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.3 !important;
+    height: auto !important;
 }
 div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button:hover {
     border-color: #a855f7 !important;
@@ -648,10 +651,6 @@ if selected_chip:
     <div style="font-size:15px;color:#18181b;line-height:1.7;font-style:italic;">"{preview_query}"</div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button(tx["use_this"].format(name=selected_chip), key="use_chip_query"):
-        st.session_state["person_input"] = selected_chip
-        st.session_state["situation_input"] = preview_query
-        st.rerun()
 
 st.markdown('<div style="margin-top:40px;"></div>', unsafe_allow_html=True)
 
