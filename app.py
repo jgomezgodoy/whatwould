@@ -605,7 +605,8 @@ st.markdown(f'<div class="chips-label" style="text-align:center;margin-bottom:8p
 
 st.markdown("""
 <style>
-div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
+/* Chip buttons only — targets the 6-column row, not the Ask button row */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(6)) button {
     background: rgba(255,255,255,0.65) !important;
     border: 1px solid rgba(200,200,210,0.8) !important;
     border-radius: 100px !important;
@@ -620,7 +621,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
     line-height: 1.3 !important;
     height: auto !important;
 }
-div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button:hover {
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(6)) button:hover {
     border-color: #a855f7 !important;
     color: #7c3aed !important;
     transform: none !important;
