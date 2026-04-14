@@ -579,7 +579,36 @@ chip_queries = st.session_state["chip_queries"]
 # ── Pills (clickable chips) ───────────────────────────────────────────────────
 st.markdown(f'<div class="chips-label" style="text-align:center;margin-bottom:8px;">{tx["chips_label"]}</div>', unsafe_allow_html=True)
 
-selected_chip = st.pills("", shown, selection_mode="single", key="chip_selector", label_visibility="collapsed")
+st.markdown("""
+<style>
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
+    background: rgba(255,255,255,0.65) !important;
+    border: 1px solid rgba(200,200,210,0.8) !important;
+    border-radius: 100px !important;
+    color: #52525b !important;
+    font-size: 12.5px !important;
+    font-weight: 400 !important;
+    padding: 6px 16px !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+    width: auto !important;
+    margin: 0 auto !important;
+}
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button:hover {
+    border-color: #a855f7 !important;
+    color: #7c3aed !important;
+    transform: none !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+chip_cols = st.columns(len(shown))
+for i, name in enumerate(shown):
+    with chip_cols[i]:
+        if st.button(name, key=f"chip_btn_{name}"):
+            st.session_state["selected_chip"] = name
+
+selected_chip = st.session_state.get("selected_chip")
 
 # ── Query preview card ────────────────────────────────────────────────────────
 if selected_chip and chip_queries.get(selected_chip):
